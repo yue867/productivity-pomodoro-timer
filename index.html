@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>专注番茄钟</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>专注番茄钟</h1>
+        </header>
+
+        <section class="task-input-section">
+            <input type="text" id="taskName" class="task-input" placeholder="输入当前任务名称..." maxlength="50">
+        </section>
+
+        <section class="timer-section">
+            <div class="progress-ring-container">
+                <svg class="progress-ring" viewBox="0 0 200 200">
+                    <circle class="progress-ring-bg" cx="100" cy="100" r="90" />
+                    <circle class="progress-ring-fill" id="progressRing" cx="100" cy="100" r="90" />
+                </svg>
+                <div class="timer-content">
+                    <div class="timer-display" id="timerDisplay">25:00</div>
+                    <div class="timer-status" id="timerStatus">准备开始</div>
+                </div>
+            </div>
+        </section>
+
+        <section class="controls-section">
+            <button class="btn btn-primary" id="startBtn">开始</button>
+            <button class="btn btn-secondary" id="pauseBtn" disabled>暂停</button>
+            <button class="btn btn-secondary" id="resetBtn">重置</button>
+        </section>
+
+        <section class="stats-section">
+            <div class="stats-card">
+                <span class="stats-label">今日完成</span>
+                <div class="tomato-display" id="tomatoDisplay">
+                    <span class="tomato">🍅</span>
+                    <span class="tomato">🍅</span>
+                    <span class="tomato">🍅</span>
+                </div>
+                <span class="stats-count">(<span id="tomatoCount">0</span>个)</span>
+            </div>
+        </section>
+
+        <section class="settings-section">
+            <button class="settings-toggle" id="settingsToggle">
+                <span class="settings-icon">⚙</span>
+                <span>设置</span>
+            </button>
+            <div class="settings-panel" id="settingsPanel">
+                <div class="setting-item">
+                    <label for="focusDuration">专注时长</label>
+                    <div class="setting-input-group">
+                        <input type="number" id="focusDuration" value="25" min="1" max="60">
+                        <span class="setting-unit">分钟</span>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <label for="shortBreakDuration">短休息时长</label>
+                    <div class="setting-input-group">
+                        <input type="number" id="shortBreakDuration" value="5" min="1" max="30">
+                        <span class="setting-unit">分钟</span>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <label for="longBreakDuration">长休息时长</label>
+                    <div class="setting-input-group">
+                        <input type="number" id="longBreakDuration" value="15" min="1" max="60">
+                        <span class="setting-unit">分钟</span>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <label for="tomatoesUntilLongBreak">长休息前番茄数</label>
+                    <div class="setting-input-group">
+                        <input type="number" id="tomatoesUntilLongBreak" value="4" min="2" max="10">
+                        <span class="setting-unit">个</span>
+                    </div>
+                </div>
+                <div class="setting-item">
+                    <label for="soundEnabled">提示音</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="soundEnabled" checked>
+                        <span class="toggle-slider"></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <audio id="notificationSound" preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2Onp6agHFkYGJ2gpOXmZeNg3JaV15ygI6XmJeLfn52a2V0gJSZnpqTin96dXJzdXyEkJmcnJWEeXV0c3V7gIyYoKCbl4p7eHV0dXyAjpqhn5mSint6dXV1eH6EkJuenpOIfXt3dXV6foSPm6KhmZGIe3p3dnV7foORmqKhl5GIfHt3d3Z8f4OQmqOik5CIfXt4d3h9f4ORm6OjkZGIe3p4eHl9f4KQmqOikJCIe3p4eXp9f4GQmaKij4+Je3p5eXp8f3+" type="audio/wav">
+    </audio>
+
+    <script src="script.js"></script>
+</body>
+</html>
