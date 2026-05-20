@@ -16,7 +16,6 @@ class PomodoroTimer {
         this.tomatoCount = document.getElementById('tomatoCount');
         this.settingsToggle = document.getElementById('settingsToggle');
         this.settingsPanel = document.getElementById('settingsPanel');
-        this.notificationSound = document.getElementById('notificationSound');
 
         // Settings inputs
         this.focusDurationInput = document.getElementById('focusDuration');
@@ -48,6 +47,7 @@ class PomodoroTimer {
         // Progress ring circumference
         this.circumference = 2 * Math.PI * 90;
         this.progressRing.style.strokeDasharray = this.circumference;
+        this.progressRing.style.strokeDashoffset = this.circumference;
 
         // Initialize
         this.init();
@@ -58,6 +58,8 @@ class PomodoroTimer {
         this.loadSettings();
         this.updateDisplay();
         this.updateTomatoDisplay();
+        this.settingsToggle.classList.remove('active');
+        this.settingsPanel.classList.remove('show');
     }
 
     bindEvents() {
