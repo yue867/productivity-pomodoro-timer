@@ -24,6 +24,15 @@
                         <span class="tab-icon">✓</span>
                         <span class="tab-label">待办事项</span>
                     </button>
+                    <button class="tab-btn" data-tab="password">
+                        <span class="tab-icon">🔐</span>
+                        <span class="tab-label">密码生成</span>
+                    </button>
+                    <div class="nav-divider"></div>
+                    <button class="tab-btn" data-tab="about">
+                        <span class="tab-icon">👤</span>
+                        <span class="tab-label">关于我</span>
+                    </button>
                 </nav>
             </div>
         </header>
@@ -98,15 +107,152 @@
                     </section>
                 </div>
             </div>
+
+            <div class="tab-content" id="password-content">
+                <div class="tool-container">
+                    <section class="password-display-section">
+                        <div class="password-display-wrapper">
+                            <input type="text" id="passwordDisplay" class="password-display" readonly placeholder="生成的密码将显示在这里">
+                            <button class="btn btn-secondary btn-copy" id="copyPasswordBtn" disabled>复制</button>
+                        </div>
+                    </section>
+
+                    <section class="password-options-section">
+                        <div class="setting-item">
+                            <label for="passwordLength">密码长度</label>
+                            <div class="setting-input-group">
+                                <input type="number" id="passwordLength" value="16" min="4" max="64">
+                                <span class="setting-unit">位</span>
+                            </div>
+                        </div>
+
+                        <div class="password-checkboxes">
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="includeUppercase" checked>
+                                <span class="checkbox-label">大写字母 (A-Z)</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="includeLowercase" checked>
+                                <span class="checkbox-label">小写字母 (a-z)</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="includeNumbers" checked>
+                                <span class="checkbox-label">数字 (0-9)</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="includeSymbols">
+                                <span class="checkbox-label">特殊字符 (!@#$%)</span>
+                            </label>
+                        </div>
+                    </section>
+
+                    <section class="password-controls-section">
+                        <button class="btn btn-primary" id="generatePasswordBtn">生成密码</button>
+                        <button class="btn btn-secondary" id="refreshPasswordBtn">🔄 重新生成</button>
+                    </section>
+
+                    <section class="password-history-section">
+                        <h3 class="section-title">历史记录</h3>
+                        <div class="history-list" id="passwordHistory">
+                        </div>
+                        <div class="history-empty" id="historyEmpty">
+                            <p>暂无生成记录</p>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div class="tab-content" id="about-content">
+                <div class="about-container">
+                    <section class="about-header">
+                        <img src="https://api.iconify.design/noto:user-circle.svg?color=%234A90D9&width=128&height=128" alt="头像" class="avatar">
+                        <h2>张小明</h2>
+                        <p class="title">全栈开发工程师</p>
+                    </section>
+
+                    <section class="about-section">
+                        <h3 class="section-title">📝 个人简介</h3>
+                        <p class="section-content">
+                            热爱技术，专注于Web开发领域，拥有丰富的前端和后端开发经验。
+                            善于将复杂的技术问题转化为简洁优雅的解决方案，注重用户体验和代码质量。
+                        </p>
+                    </section>
+
+                    <section class="about-section">
+                        <h3 class="section-title">💼 项目说明</h3>
+                        <p class="section-content">
+                            <strong>生活效率工具箱</strong>是一款集多种实用工具于一体的Web应用，
+                            包含番茄钟、待办事项管理、密码生成器等功能，帮助用户提高工作效率和生活质量。
+                        </p>
+                        <ul class="project-features">
+                            <li>🍅 番茄钟：专注计时，提高工作效率</li>
+                            <li>✓ 待办事项：任务管理，规划日常工作</li>
+                            <li>🔐 密码生成器：安全密码，一键生成</li>
+                        </ul>
+                    </section>
+
+                    <section class="about-section">
+                        <h3 class="section-title">🛠️ 技术栈</h3>
+                        <div class="tech-stack">
+                            <div class="tech-item">HTML5</div>
+                            <div class="tech-item">CSS3</div>
+                            <div class="tech-item">JavaScript ES6+</div>
+                            <div class="tech-item">GitHub</div>
+                            <div class="tech-item">Git</div>
+                            <div class="tech-item">VS Code</div>
+                        </div>
+                    </section>
+
+                    <section class="about-section">
+                        <h3 class="section-title">📬 联系方式</h3>
+                        <div class="contact-info">
+                            <a href="https://github.com/yue867" target="_blank" class="contact-link">
+                                <span class="contact-icon">🐙</span>
+                                <span>GitHub</span>
+                            </a>
+                            <a href="mailto:zhangxiaoming@example.com" class="contact-link">
+                                <span class="contact-icon">📧</span>
+                                <span>zhangxiaoming@example.com</span>
+                            </a>
+                        </div>
+                    </section>
+                </div>
+            </div>
         </main>
 
         <footer class="app-footer">
+            <div class="quick-actions">
+                <button class="quick-action-btn" id="quickStartPomodoro">
+                    <span class="quick-icon">🍅</span>
+                    <span>快速专注</span>
+                </button>
+                <button class="quick-action-btn" id="quickAddTodo">
+                    <span class="quick-icon">✓</span>
+                    <span>添加待办</span>
+                </button>
+                <button class="quick-action-btn" id="quickGeneratePassword">
+                    <span class="quick-icon">🔐</span>
+                    <span>生成密码</span>
+                </button>
+            </div>
+
             <div class="settings-section">
                 <button class="settings-toggle" id="settingsToggle">
                     <span class="settings-icon">⚙</span>
                     <span>设置</span>
                 </button>
                 <div class="settings-panel" id="settingsPanel">
+                    <div class="settings-group">
+                        <h3 class="settings-group-title">🎨 外观设置</h3>
+                        <div class="setting-item">
+                            <label for="darkMode">深色模式</label>
+                            <div class="toggle-switch">
+                                <input type="checkbox" id="darkMode">
+                                <span class="toggle-slider"></span>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="settings-group">
                         <h3 class="settings-group-title">🍅 番茄钟设置</h3>
                         <div class="setting-item">
@@ -145,8 +291,14 @@
                             </div>
                         </div>
                     </div>
+
                     <div class="settings-group">
-                        <h3 class="settings-group-title">📤 数据导出</h3>
+                        <h3 class="settings-group-title">📊 使用统计</h3>
+                        <button class="btn btn-secondary btn-stats" id="showStatsBtn">查看统计</button>
+                    </div>
+
+                    <div class="settings-group">
+                        <h3 class="settings-group-title">📤 数据管理</h3>
                         <div class="export-buttons">
                             <button class="btn btn-export" id="exportJsonBtn">
                                 <span class="btn-icon">{}</span>
@@ -157,10 +309,60 @@
                                 导出 CSV
                             </button>
                         </div>
+                        <input type="file" id="importFile" accept=".json" style="display: none">
+                        <button class="btn btn-import" id="importJsonBtn">
+                            <span class="btn-icon">⬆</span>
+                            导入数据
+                        </button>
                     </div>
                 </div>
             </div>
         </footer>
+    </div>
+
+    <div class="stats-modal" id="statsModal">
+        <div class="stats-modal-content">
+            <div class="modal-header">
+                <h3>📊 使用统计</h3>
+                <button class="modal-close" id="statsModalClose">×</button>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">🍅</div>
+                    <div class="stat-value" id="statPomodoro">0</div>
+                    <div class="stat-label">完成番茄数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">✓</div>
+                    <div class="stat-value" id="statTodoAdded">0</div>
+                    <div class="stat-label">添加待办数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">✅</div>
+                    <div class="stat-value" id="statTodoCompleted">0</div>
+                    <div class="stat-label">完成待办数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🔐</div>
+                    <div class="stat-value" id="statPassword">0</div>
+                    <div class="stat-label">生成密码数</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="quick-todo-modal" id="quickTodoModal">
+        <div class="quick-todo-content">
+            <div class="modal-header">
+                <h3>快速添加待办</h3>
+                <button class="modal-close" id="quickTodoModalClose">×</button>
+            </div>
+            <input type="text" id="quickTodoInput" class="quick-todo-input" placeholder="输入待办内容..." maxlength="100">
+            <div class="modal-actions">
+                <button class="btn btn-secondary" id="quickTodoCancel">取消</button>
+                <button class="btn btn-primary" id="quickTodoAdd">添加</button>
+            </div>
+        </div>
     </div>
 
     <div class="toast" id="toast">

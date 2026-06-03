@@ -22,7 +22,7 @@ class ToastManager {
     }
 
     hide() {
-        this.toast.classList.remove('show');
+        this.toast.classList.remove('show', 'success', 'error');
     }
 }
 
@@ -56,11 +56,33 @@ class TabManager {
         if (this.onTabChange) {
             this.onTabChange(tab);
         }
+        this.saveLastUsedTab(tab);
+    }
+
+    saveLastUsedTab(tab) {
+        try {
+            const settings = this.loadAppSettings();
+            settings.lastUsedTab = tab;
+            localStorage.setItem('appSettings', JSON.stringify(settings));
+        } catch (e) {
+            console.warn('Failed to save last used tab:', e);
+        }
+    }
+
+    loadAppSettings() {
+        try {
+            const saved = localStorage.getItem('appSettings');
+            return saved ? JSON.parse(saved) : { theme: 'light', lastUsedTab: 'pomodoro' };
+        } catch (e) {
+            return { theme: 'light', lastUsedTab: 'pomodoro' };
+        }
     }
 }
 
 class PomodoroTimer {
-    constructor() {
+    constructor(toastManager, statsManager) {
+        this.toastManager = toastManager;
+        this.statsManager = statsManager;
         this.timerDisplay = document.getElementById('timerDisplay');
         this.timerStatus = document.getElementById('timerStatus');
         this.progressRing = document.getElementById('progressRing');
@@ -217,7 +239,7 @@ class PomodoroTimer {
             clearInterval(this.timerId);
             this.timerId = null;
         }
-        this.setMode(this.currentMode);
+        this.setMode('focus');
     }
 
     tick() {
@@ -234,7 +256,9 @@ class PomodoroTimer {
             this.completedPomodoros++;
             this.saveProgress();
             this.updateTomatoDisplay();
+            this.statsManager.incrementStat('pomodoroCount');
             this.playSound();
+            this.toastManager.show(`🍅 完成一个番茄！共 ${this.completedPomodoros} 个`, 'success');
             if (this.completedPomodoros % this.settings.tomatoesUntilLongBreak === 0) {
                 this.setMode('longBreak');
             } else {
@@ -315,7 +339,9 @@ class PomodoroTimer {
 }
 
 class TodoManager {
-    constructor(toastManager) {
+    constructor(toastManager, statsManager) {
+        this.toastManager = toastManager;
+        this.statsManager = statsManager;
         this.todoInput = document.getElementById('todoInput');
         this.addTodoBtn = document.getElementById('addTodoBtn');
         this.todoList = document.getElementById('todoList');
@@ -323,7 +349,6 @@ class TodoManager {
         this.todoTotalCount = document.getElementById('todoTotalCount');
         this.todoCompletedCount = document.getElementById('todoCompletedCount');
         this.todoTabBtns = document.querySelectorAll('.todo-tab-btn');
-        this.toastManager = toastManager;
         this.todos = [];
         this.currentFilter = 'all';
         this.init();
@@ -371,15 +396,15 @@ class TodoManager {
         }
     }
 
-    addTodo() {
-        const text = this.todoInput.value.trim();
-        if (!text) {
+    addTodo(text = null) {
+        const todoText = text || this.todoInput.value.trim();
+        if (!todoText) {
             this.toastManager.show('请输入待办事项内容', 'error');
             return;
         }
         const todo = {
             id: Date.now(),
-            text: text,
+            text: todoText,
             completed: false,
             createdAt: new Date().toISOString()
         };
@@ -387,20 +412,26 @@ class TodoManager {
         this.saveTodos();
         this.todoInput.value = '';
         this.render();
+        this.statsManager.incrementStat('todoAddCount');
         this.toastManager.show('待办事项已添加', 'success');
     }
 
     toggleTodo(id) {
         const todo = this.todos.find(t => t.id === id);
         if (todo) {
+            const wasCompleted = todo.completed;
             todo.completed = !todo.completed;
             if (todo.completed) {
                 todo.completedAt = new Date().toISOString();
+                this.statsManager.incrementStat('todoCompleteCount');
             } else {
                 delete todo.completedAt;
             }
             this.saveTodos();
             this.render();
+            if (!wasCompleted && todo.completed) {
+                this.toastManager.show('待办事项已完成 ✓', 'success');
+            }
         }
     }
 
@@ -464,24 +495,401 @@ class TodoManager {
     }
 }
 
+class PasswordGenerator {
+    constructor(toastManager, statsManager) {
+        this.toastManager = toastManager;
+        this.statsManager = statsManager;
+        this.passwordDisplay = document.getElementById('passwordDisplay');
+        this.copyBtn = document.getElementById('copyPasswordBtn');
+        this.generateBtn = document.getElementById('generatePasswordBtn');
+        this.refreshBtn = document.getElementById('refreshPasswordBtn');
+        this.lengthInput = document.getElementById('passwordLength');
+        this.uppercaseInput = document.getElementById('includeUppercase');
+        this.lowercaseInput = document.getElementById('includeLowercase');
+        this.numbersInput = document.getElementById('includeNumbers');
+        this.symbolsInput = document.getElementById('includeSymbols');
+        this.historyList = document.getElementById('passwordHistory');
+        this.historyEmpty = document.getElementById('historyEmpty');
+        this.settings = {
+            length: 16,
+            uppercase: true,
+            lowercase: true,
+            numbers: true,
+            symbols: false
+        };
+        this.history = [];
+        this.init();
+    }
+
+    init() {
+        this.bindEvents();
+        this.loadSettings();
+        this.loadHistory();
+        this.renderHistory();
+    }
+
+    bindEvents() {
+        this.generateBtn.addEventListener('click', () => this.generate());
+        this.refreshBtn.addEventListener('click', () => this.generate());
+        this.copyBtn.addEventListener('click', () => this.copyPassword());
+        this.lengthInput.addEventListener('change', () => this.updateSettings());
+        this.uppercaseInput.addEventListener('change', () => this.updateSettings());
+        this.lowercaseInput.addEventListener('change', () => this.updateSettings());
+        this.numbersInput.addEventListener('change', () => this.updateSettings());
+        this.symbolsInput.addEventListener('change', () => this.updateSettings());
+    }
+
+    loadSettings() {
+        try {
+            const saved = localStorage.getItem('passwordSettings');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                this.settings = { ...this.settings, ...parsed };
+            }
+        } catch (e) {
+            console.warn('Failed to load password settings:', e);
+        }
+        this.lengthInput.value = this.settings.length;
+        this.uppercaseInput.checked = this.settings.uppercase;
+        this.lowercaseInput.checked = this.settings.lowercase;
+        this.numbersInput.checked = this.settings.numbers;
+        this.symbolsInput.checked = this.settings.symbols;
+    }
+
+    saveSettings() {
+        try {
+            localStorage.setItem('passwordSettings', JSON.stringify(this.settings));
+        } catch (e) {
+            console.warn('Failed to save password settings:', e);
+        }
+    }
+
+    updateSettings() {
+        this.settings.length = Math.max(4, Math.min(64, parseInt(this.lengthInput.value, 10) || 16));
+        this.settings.uppercase = this.uppercaseInput.checked;
+        this.settings.lowercase = this.lowercaseInput.checked;
+        this.settings.numbers = this.numbersInput.checked;
+        this.settings.symbols = this.symbolsInput.checked;
+        this.lengthInput.value = this.settings.length;
+        this.saveSettings();
+    }
+
+    loadHistory() {
+        try {
+            const saved = localStorage.getItem('passwordHistory');
+            if (saved) {
+                this.history = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.warn('Failed to load password history:', e);
+            this.history = [];
+        }
+    }
+
+    saveHistory() {
+        try {
+            localStorage.setItem('passwordHistory', JSON.stringify(this.history));
+        } catch (e) {
+            console.warn('Failed to save password history:', e);
+        }
+    }
+
+    generate() {
+        const chars = [];
+        if (this.settings.uppercase) chars.push('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+        if (this.settings.lowercase) chars.push('abcdefghijklmnopqrstuvwxyz');
+        if (this.settings.numbers) chars.push('0123456789');
+        if (this.settings.symbols) chars.push('!@#$%^&*()_+-=[]{}|;:,.<>?');
+        
+        if (chars.length === 0) {
+            this.toastManager.show('请至少选择一种字符类型', 'error');
+            return;
+        }
+
+        const allChars = chars.join('');
+        let password = '';
+        const array = new Uint32Array(this.settings.length);
+        crypto.getRandomValues(array);
+        
+        for (let i = 0; i < this.settings.length; i++) {
+            password += allChars[array[i] % allChars.length];
+        }
+
+        this.passwordDisplay.value = password;
+        this.copyBtn.disabled = false;
+        
+        this.history.unshift({
+            password: password,
+            timestamp: new Date().toISOString()
+        });
+        
+        if (this.history.length > 10) {
+            this.history = this.history.slice(0, 10);
+        }
+        
+        this.saveHistory();
+        this.renderHistory();
+        this.statsManager.incrementStat('passwordGenerateCount');
+    }
+
+    copyPassword() {
+        const password = this.passwordDisplay.value;
+        if (!password) return;
+        
+        navigator.clipboard.writeText(password).then(() => {
+            this.toastManager.show('密码已复制到剪贴板', 'success');
+            this.copyBtn.textContent = '已复制';
+            setTimeout(() => {
+                this.copyBtn.textContent = '复制';
+            }, 2000);
+        }).catch(() => {
+            this.toastManager.show('复制失败，请手动复制', 'error');
+        });
+    }
+
+    copyFromHistory(password) {
+        navigator.clipboard.writeText(password).then(() => {
+            this.toastManager.show('密码已复制到剪贴板', 'success');
+        }).catch(() => {
+            this.toastManager.show('复制失败，请手动复制', 'error');
+        });
+    }
+
+    renderHistory() {
+        if (this.history.length === 0) {
+            this.historyList.innerHTML = '';
+            this.historyEmpty.style.display = 'block';
+        } else {
+            this.historyEmpty.style.display = 'none';
+            this.historyList.innerHTML = this.history.map((item, index) => `
+                <div class="history-item">
+                    <span class="history-index">${index + 1}.</span>
+                    <span class="history-password">${item.password}</span>
+                    <button onclick="window.app.passwordGenerator.copyFromHistory('${item.password}')">复制</button>
+                </div>
+            `).join('');
+        }
+    }
+}
+
+class ThemeManager {
+    constructor() {
+        this.darkModeToggle = document.getElementById('darkMode');
+        this.currentTheme = 'light';
+        this.init();
+    }
+
+    init() {
+        this.loadTheme();
+        this.bindEvents();
+    }
+
+    loadTheme() {
+        try {
+            const settings = localStorage.getItem('appSettings');
+            if (settings) {
+                const parsed = JSON.parse(settings);
+                this.currentTheme = parsed.theme || 'light';
+            }
+        } catch (e) {
+            console.warn('Failed to load theme:', e);
+        }
+        this.applyTheme();
+        this.darkModeToggle.checked = this.currentTheme === 'dark';
+    }
+
+    saveTheme() {
+        try {
+            const settings = localStorage.getItem('appSettings');
+            const parsed = settings ? JSON.parse(settings) : {};
+            parsed.theme = this.currentTheme;
+            localStorage.setItem('appSettings', JSON.stringify(parsed));
+        } catch (e) {
+            console.warn('Failed to save theme:', e);
+        }
+    }
+
+    applyTheme() {
+        document.documentElement.setAttribute('data-theme', this.currentTheme);
+    }
+
+    toggleTheme() {
+        this.currentTheme = this.currentTheme === 'light' ? 'dark' : 'light';
+        this.applyTheme();
+        this.saveTheme();
+    }
+
+    bindEvents() {
+        this.darkModeToggle.addEventListener('change', () => {
+            this.toggleTheme();
+        });
+    }
+}
+
+class StatsManager {
+    constructor() {
+        this.stats = {
+            pomodoroCount: 0,
+            todoAddCount: 0,
+            todoCompleteCount: 0,
+            passwordGenerateCount: 0
+        };
+        this.loadStats();
+    }
+
+    loadStats() {
+        try {
+            const saved = localStorage.getItem('usageStats');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                this.stats = { ...this.stats, ...parsed };
+            }
+        } catch (e) {
+            console.warn('Failed to load stats:', e);
+        }
+    }
+
+    saveStats() {
+        try {
+            localStorage.setItem('usageStats', JSON.stringify(this.stats));
+        } catch (e) {
+            console.warn('Failed to save stats:', e);
+        }
+    }
+
+    incrementStat(statName) {
+        if (this.stats[statName] !== undefined) {
+            this.stats[statName]++;
+            this.saveStats();
+        }
+    }
+
+    getStats() {
+        return { ...this.stats };
+    }
+
+    resetStats() {
+        this.stats = {
+            pomodoroCount: 0,
+            todoAddCount: 0,
+            todoCompleteCount: 0,
+            passwordGenerateCount: 0
+        };
+        this.saveStats();
+    }
+}
+
+class StatsModal {
+    constructor(statsManager, toastManager) {
+        this.statsManager = statsManager;
+        this.toastManager = toastManager;
+        this.modal = document.getElementById('statsModal');
+        this.closeBtn = document.getElementById('statsModalClose');
+        this.statPomodoro = document.getElementById('statPomodoro');
+        this.statTodoAdded = document.getElementById('statTodoAdded');
+        this.statTodoCompleted = document.getElementById('statTodoCompleted');
+        this.statPassword = document.getElementById('statPassword');
+        this.init();
+    }
+
+    init() {
+        this.closeBtn.addEventListener('click', () => this.hide());
+        this.modal.addEventListener('click', (e) => {
+            if (e.target === this.modal) {
+                this.hide();
+            }
+        });
+    }
+
+    show() {
+        const stats = this.statsManager.getStats();
+        this.statPomodoro.textContent = stats.pomodoroCount;
+        this.statTodoAdded.textContent = stats.todoAddCount;
+        this.statTodoCompleted.textContent = stats.todoCompleteCount;
+        this.statPassword.textContent = stats.passwordGenerateCount;
+        this.modal.classList.add('show');
+    }
+
+    hide() {
+        this.modal.classList.remove('show');
+    }
+}
+
+class QuickTodoModal {
+    constructor(todoManager, toastManager) {
+        this.todoManager = todoManager;
+        this.toastManager = toastManager;
+        this.modal = document.getElementById('quickTodoModal');
+        this.closeBtn = document.getElementById('quickTodoModalClose');
+        this.cancelBtn = document.getElementById('quickTodoCancel');
+        this.addBtn = document.getElementById('quickTodoAdd');
+        this.input = document.getElementById('quickTodoInput');
+        this.init();
+    }
+
+    init() {
+        this.closeBtn.addEventListener('click', () => this.hide());
+        this.cancelBtn.addEventListener('click', () => this.hide());
+        this.addBtn.addEventListener('click', () => this.addTodo());
+        this.input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.addTodo();
+            }
+        });
+        this.modal.addEventListener('click', (e) => {
+            if (e.target === this.modal) {
+                this.hide();
+            }
+        });
+    }
+
+    show() {
+        this.input.value = '';
+        this.input.focus();
+        this.modal.classList.add('show');
+    }
+
+    hide() {
+        this.modal.classList.remove('show');
+        this.input.value = '';
+    }
+
+    addTodo() {
+        const text = this.input.value.trim();
+        if (!text) {
+            this.toastManager.show('请输入待办事项内容', 'error');
+            return;
+        }
+        this.todoManager.addTodo(text);
+        this.hide();
+    }
+}
+
 class DataExporter {
-    constructor(pomodoroTimer, todoManager, toastManager) {
+    constructor(pomodoroTimer, todoManager, passwordGenerator, toastManager) {
         this.pomodoroTimer = pomodoroTimer;
         this.todoManager = todoManager;
+        this.passwordGenerator = passwordGenerator;
         this.toastManager = toastManager;
     }
 
     exportJSON() {
         const data = {
             exportDate: new Date().toISOString(),
-            pomodoro: {
-                completedCount: this.pomodoroTimer.completedPomodoros,
-                settings: this.pomodoroTimer.settings
-            },
-            todos: this.todoManager.todos
+            version: '1.0.0',
+            data: {
+                pomodoroSettings: this.pomodoroTimer.settings,
+                pomodoroCount: localStorage.getItem('pomodoroCount') || '0',
+                pomodoroDate: localStorage.getItem('pomodoroDate') || '',
+                todoItems: this.todoManager.todos,
+                passwordSettings: this.passwordGenerator.settings,
+                passwordHistory: this.passwordGenerator.history,
+                appSettings: this.loadAppSettings(),
+                usageStats: this.loadUsageStats()
+            }
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        this.downloadBlob(blob, `productivity-data-${this.getDateString()}.json`);
+        this.downloadBlob(blob, `productivity-toolbox-backup-${this.getDateString()}.json`);
         this.toastManager.show('JSON 数据导出成功', 'success');
     }
 
@@ -498,14 +906,82 @@ class DataExporter {
         });
         rows.push([]);
         rows.push(['番茄钟统计']);
-        rows.push(['完成次数', this.pomodoroTimer.completedPomodoros]);
+        rows.push(['完成次数', localStorage.getItem('pomodoroCount') || '0']);
         rows.push(['专注时长设置', this.pomodoroTimer.settings.focusDuration, '分钟']);
         rows.push(['短休息时长', this.pomodoroTimer.settings.shortBreakDuration, '分钟']);
         rows.push(['长休息时长', this.pomodoroTimer.settings.longBreakDuration, '分钟']);
+        rows.push([]);
+        rows.push(['密码生成历史']);
+        this.passwordGenerator.history.forEach((item, index) => {
+            rows.push([`密码${index + 1}`, item.password, new Date(item.timestamp).toLocaleString('zh-CN')]);
+        });
         const csvContent = rows.map(row => row.join(',')).join('\n');
         const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8' });
-        this.downloadBlob(blob, `productivity-data-${this.getDateString()}.csv`);
+        this.downloadBlob(blob, `productivity-toolbox-backup-${this.getDateString()}.csv`);
         this.toastManager.show('CSV 数据导出成功', 'success');
+    }
+
+    importJSON(file) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (!data.data) {
+                    throw new Error('无效的数据格式');
+                }
+                
+                if (data.data.pomodoroSettings) {
+                    localStorage.setItem('pomodoroSettings', JSON.stringify(data.data.pomodoroSettings));
+                }
+                if (data.data.pomodoroCount !== undefined) {
+                    localStorage.setItem('pomodoroCount', String(data.data.pomodoroCount));
+                }
+                if (data.data.pomodoroDate) {
+                    localStorage.setItem('pomodoroDate', data.data.pomodoroDate);
+                }
+                if (data.data.todoItems) {
+                    localStorage.setItem('todoItems', JSON.stringify(data.data.todoItems));
+                }
+                if (data.data.passwordSettings) {
+                    localStorage.setItem('passwordSettings', JSON.stringify(data.data.passwordSettings));
+                }
+                if (data.data.passwordHistory) {
+                    localStorage.setItem('passwordHistory', JSON.stringify(data.data.passwordHistory));
+                }
+                if (data.data.appSettings) {
+                    localStorage.setItem('appSettings', JSON.stringify(data.data.appSettings));
+                }
+                if (data.data.usageStats) {
+                    localStorage.setItem('usageStats', JSON.stringify(data.data.usageStats));
+                }
+                
+                this.toastManager.show('数据导入成功，页面将刷新', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } catch (e) {
+                this.toastManager.show(`导入失败: ${e.message}`, 'error');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    loadAppSettings() {
+        try {
+            const saved = localStorage.getItem('appSettings');
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    loadUsageStats() {
+        try {
+            const saved = localStorage.getItem('usageStats');
+            return saved ? JSON.parse(saved) : {};
+        } catch (e) {
+            return {};
+        }
     }
 
     getDateString() {
@@ -528,11 +1004,19 @@ class DataExporter {
 class App {
     constructor() {
         this.toastManager = new ToastManager();
+        this.statsManager = new StatsManager();
+        this.themeManager = new ThemeManager();
         this.tabManager = new TabManager((tab) => this.onTabChange(tab));
-        this.pomodoroTimer = new PomodoroTimer();
-        this.todoManager = new TodoManager(this.toastManager);
-        this.dataExporter = new DataExporter(this.pomodoroTimer, this.todoManager, this.toastManager);
+        this.pomodoroTimer = new PomodoroTimer(this.toastManager, this.statsManager);
+        this.todoManager = new TodoManager(this.toastManager, this.statsManager);
+        this.passwordGenerator = new PasswordGenerator(this.toastManager, this.statsManager);
+        this.statsModal = new StatsModal(this.statsManager, this.toastManager);
+        this.quickTodoModal = new QuickTodoModal(this.todoManager, this.toastManager);
+        this.dataExporter = new DataExporter(this.pomodoroTimer, this.todoManager, this.passwordGenerator, this.toastManager);
         this.initSettings();
+        this.initQuickActions();
+        this.initImport();
+        this.loadLastTab();
     }
 
     initSettings() {
@@ -540,16 +1024,78 @@ class App {
         const settingsPanel = document.getElementById('settingsPanel');
         const exportJsonBtn = document.getElementById('exportJsonBtn');
         const exportCsvBtn = document.getElementById('exportCsvBtn');
+        const showStatsBtn = document.getElementById('showStatsBtn');
+        
         settingsToggle.addEventListener('click', () => {
             settingsToggle.classList.toggle('active');
             settingsPanel.classList.toggle('show');
         });
+        
         exportJsonBtn.addEventListener('click', () => {
             this.dataExporter.exportJSON();
         });
+        
         exportCsvBtn.addEventListener('click', () => {
             this.dataExporter.exportCSV();
         });
+        
+        showStatsBtn.addEventListener('click', () => {
+            this.statsModal.show();
+        });
+    }
+
+    initQuickActions() {
+        const quickStartPomodoro = document.getElementById('quickStartPomodoro');
+        const quickAddTodo = document.getElementById('quickAddTodo');
+        const quickGeneratePassword = document.getElementById('quickGeneratePassword');
+        
+        quickStartPomodoro.addEventListener('click', () => {
+            this.tabManager.switchTab('pomodoro');
+            this.pomodoroTimer.start();
+        });
+        
+        quickAddTodo.addEventListener('click', () => {
+            this.tabManager.switchTab('todo');
+            this.quickTodoModal.show();
+        });
+        
+        quickGeneratePassword.addEventListener('click', () => {
+            this.tabManager.switchTab('password');
+            this.passwordGenerator.generate();
+        });
+    }
+
+    initImport() {
+        const importBtn = document.getElementById('importJsonBtn');
+        const importFile = document.getElementById('importFile');
+        
+        importBtn.addEventListener('click', () => {
+            importFile.click();
+        });
+        
+        importFile.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                this.dataExporter.importJSON(file);
+            }
+            importFile.value = '';
+        });
+    }
+
+    loadLastTab() {
+        try {
+            const settings = localStorage.getItem('appSettings');
+            if (settings) {
+                const parsed = JSON.parse(settings);
+                if (parsed.lastUsedTab) {
+                    setTimeout(() => {
+                        this.tabManager.switchTab(parsed.lastUsedTab);
+                    }, 100);
+                }
+            }
+        } catch (e) {
+            console.warn('Failed to load last tab:', e);
+        }
     }
 
     onTabChange(tab) {
